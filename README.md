@@ -72,3 +72,39 @@ Proposed Next Steps: We are currently evaluating two remediation strategies:
 Patching: Manually modifying the spark-class script during the Docker build (using sed) to remove the incompatible shell code.
 
 Downgrade: Reverting to PySpark 3.4.1, which utilizes a simpler launch mechanism known to be compatible with the Lambda environment.
+
+## 6. Failed Fix Attempt: Version Downgrade
+Observation: We attempted to downgrade PySpark to versions 3.4.1, 3.3.0, and 3.2.1, hypothesizing that older versions might use a compatible legacy startup script.
+
+Error Signature: /dev/fd/62: No such file or directory
+
+Root Cause: The incompatibility is fundamental to the standard spark-class launch script across all modern PySpark versions.
+
+Resolution: Failure.
+
+## 7. Failed Fix Attempt: OS/Base Image Switch
+Observation: We switched the base image from python:3.10 (Amazon Linux 2023) to python:3.9 (Amazon Linux 2), hoping for a more permissive kernel security profile.
+
+Error Signature: /dev/fd/62: No such file or directory
+
+Root Cause: AWS Lambda restricts access to /dev/fd regardless of the underlying Operating System version.
+
+Resolution: Failure.
+
+## 8. Failed Fix Attempt: Runtime Symlinks
+Observation: We attempted to bypass the error by creating the missing /dev/fd symlink at runtime within the container.
+
+Error Signature: ln: failed to create symbolic link ‘/dev/fd’: Permission denied
+
+Root Cause: The AWS Lambda filesystem is Read-Only (except for /tmp), making it impossible to modify system directories at runtime.
+
+Resolution: Failure.
+
+## 9. Failed Fix Attempt: Structural Script Rewrite (Python Patch)
+Observation: We wrote a Python script to rewrite the bash logic inside spark-class, forcing it to use temporary files in /tmp instead of Process Substitution. We also explicitly installed bash to support the script's syntax.
+
+Error Signature: CMD: bad array subscript
+
+Root Cause: Despite installing bash, the execution environment in the minimal Lambda container appears to force the script to run under sh (POSIX shell), which does not support arrays (CMD+=) or the syntax used in our patch.
+
+Resolution: Failure.
